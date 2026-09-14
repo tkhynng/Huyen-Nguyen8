@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foto-Kabine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --curtain-1:#2b0f14;
+    --curtain-2:#1c090c;
+    --cream:#f2e7d5;
+    --cream-dim:#cdbfa8;
+    --gold:#c9974a;
+    --gold-dim:#8f6c34;
+    --flash:#fffdf6;
+    --shutter:#b5433a;
+    --shutter-hover:#c95347;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at top, #3a1418, var(--curtain-2) 70%);
+    color:var(--cream);
+    font-family:'IBM Plex Mono', monospace;
+    display:flex;
+    justify-content:center;
+    padding:32px 16px 64px;
+  }
+  .booth{
+    width:100%;
+    max-width:460px;
+  }
+  header{
+    text-align:center;
+    margin-bottom:20px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:34px;
+    margin:0 0 4px;
+    letter-spacing:0.3px;
+  }
+  header p{
+    margin:0;
+    font-size:13px;
+    color:var(--cream-dim);
+  }
+  .machine{
+    background:linear-gradient(180deg, #40181d, #2b0f14);
+    border:1px solid #4a2126;
+    border-radius:18px;
+    padding:16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  }
+  .screen{
+    position:relative;
+    width:100%;
+    aspect-ratio: 4/3;
+    background:#0d0405;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #4a2126;
+  }
+  .screen video, .screen canvas.live{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+  }
+  .screen canvas.live{ pointer-events:none; }
+  .status-line{
+    position:absolute;
+    top:8px;
+    left:10px;
+    font-size:11px;
+    color:var(--gold);
+    background:rgba(0,0,0,0.4);
+    padding:3px 8px;
+    border-radius:4px;
+    z-index:5;
+  }
+  .countdown-num{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Fraunces', serif;
+    font-size:96px;
+    font-weight:600;
+    color:var(--flash);
+    text-shadow:0 4px 20px rgba(0,0,0,0.6);
+    z-index:6;
+    pointer-events:none;
+  }
+  .flash-overlay{
+    position:absolute;
+    inset:0;
+    background:var(--flash);
+    opacity:0;
+    z-index:7;
+    pointer-events:none;
+  }
+  .upload-fallback{
+    position:absolute;
+    inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:16px;
+    text-align:center;
+    font-size:12px;
+    color:var(--cream-dim);
+    z-index:8;
+  }
+  .upload-fallback.show{ display:flex; }
+  .upload-fallback button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:8px 14px;
+    border-radius:6px;
+    border:1px solid var(--gold-dim);
+    background:transparent;
+    color:var(--gold);
+    cursor:pointer;
+  }
+  .row{
+    display:flex;
+    gap:8px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .chip-group{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    flex:1;
+  }
+  .chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:6px 10px;
+    border-radius:20px;
+    border:1px solid #4a2126;
+    background:rgba(255,255,255,0.03);
+    color:var(--cream-dim);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip:hover{ border-color:var(--gold-dim); }
+  .chip.active{
+    background:var(--gold);
+    border-color:var(--gold);
+    color:#2b0f14;
+    font-weight:500;
+  }
+  .chip.sticker-thumb{
+    padding:3px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .chip.sticker-thumb img{
+    width:26px;
+    height:26px;
+    object-fit:cover;
+    border-radius:4px;
+    display:block;
+  }
+  .sticker-mark img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block;
+  }
+  .label{
+    font-size:10px;
+    color:var(--gold-dim);
+    margin:14px 0 6px;
+  }
+  .sliders{ margin-top:4px; }
+  .slider-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+    font-size:11px;
+    color:var(--cream-dim);
+  }
+  .slider-row label{
+    width:72px;
+    flex-shrink:0;
+  }
+  .slider-row input[type=range]{
+    flex:1;
+    accent-color:var(--gold);
+  }
+  .slider-row span{
+    width:44px;
+    text-align:right;
+    color:var(--gold);
+  }
+  .controls-bottom{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    margin-top:18px;
+  }
+  .shutter-btn{
+    width:66px;
+    height:66px;
+    border-radius:50%;
+    border:3px solid var(--cream);
+    background:var(--shutter);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--flash);
+    font-size:11px;
+    font-family:'IBM Plex Mono', monospace;
+    transition:transform 0.12s ease, background 0.15s ease;
+  }
+  .shutter-btn:hover{ background:var(--shutter-hover); }
+  .shutter-btn:active{ transform:scale(0.94); }
+  .shutter-btn:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+  }
+  .counter{
+    font-size:12px;
+    color:var(--cream-dim);
+    min-width:60px;
+    text-align:center;
+  }
+  .strip-section{
+    margin-top:22px;
+  }
+  .strip-wrap{
+    background:#0d0405;
+    border-radius:10px;
+    border:1px solid #4a2126;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+  #stripCanvas{
+    max-width:100%;
+    border-radius:4px;
+    background:#fff;
+  }
+  .strip-empty{
+    font-size:12px;
+    color:var(--cream-dim);
+    text-align:center;
+    padding:20px 0;
+  }
+  .actions{
+    display:flex;
+    gap:10px;
+  }
+  .actions button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:9px 16px;
+    border-radius:8px;
+    border:1px solid var(--gold-dim);
+    background:transparent;
+    color:var(--gold);
+    cursor:pointer;
+  }
+  .actions button.primary{
+    background:var(--gold);
+    color:#2b0f14;
+    border-color:var(--gold);
+    font-weight:500;
+  }
+  .actions button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .hint{
+    text-align:center;
+    font-size:11px;
+    color:var(--cream-dim);
+    margin-top:16px;
+    line-height:1.6;
+  }
+  canvas.offscreen{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="booth">
+  <header>
+    <h1>Foto-Kabine</h1>
+    <p>Vier Bilder, ein Streifen — ganz im Browser.</p>
+  </header>
+
+  <div class="machine">
+
+    <div class="screen" id="screen">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas class="live" id="liveCanvas"></canvas>
+      <div class="status-line" id="statusLine">Kamera wird gestartet …</div>
+      <div class="countdown-num" id="countdownNum" style="display:none;"></div>
+      <div class="flash-overlay" id="flashOverlay"></div>
+
+      <div class="upload-fallback" id="uploadFallback">
+        <p>Kein Kamerazugriff möglich. Lade stattdessen ein Foto hoch, um die App zu testen.</p>
+        <button id="uploadBtn">Foto auswählen</button>
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+      </div>
+    </div>
+
+    <div class="label">Filter – Voreinstellungen</div>
+    <div class="chip-group" id="filterChips">
+      <div class="chip active" data-b="100" data-c="100" data-s="100" data-h="0">Normal</div>
+      <div class="chip" data-b="100" data-c="115" data-s="0" data-h="0">S/W</div>
+      <div class="chip" data-b="108" data-c="102" data-s="55" data-h="25">Sepia</div>
+      <div class="chip" data-b="100" data-c="118" data-s="150" data-h="-8">Vintage</div>
+      <div class="chip" data-b="103" data-c="100" data-s="75" data-h="165">Kühl</div>
+    </div>
+
+    <div class="label">Feinabstimmung – wirkt live auf die Kamera</div>
+    <div class="sliders">
+      <div class="slider-row">
+        <label for="brightnessSlider">Helligkeit</label>
+        <input type="range" id="brightnessSlider" min="50" max="150" value="100">
+        <span id="brightnessVal">100%</span>
+      </div>
+      <div class="slider-row">
+        <label for="contrastSlider">Kontrast</label>
+        <input type="range" id="contrastSlider" min="50" max="150" value="100">
+        <span id="contrastVal">100%</span>
+      </div>
+      <div class="slider-row">
+        <label for="saturationSlider">Sättigung</label>
+        <input type="range" id="saturationSlider" min="0" max="200" value="100">
+        <span id="saturationVal">100%</span>
+      </div>
+      <div class="slider-row">
+        <label for="hueSlider">Farbton</label>
+        <input type="range" id="hueSlider" min="-180" max="180" value="0">
+        <span id="hueVal">0°</span>
+      </div>
+    </div>
+
+    <div class="label">Sticker (auf das Bild tippen zum Platzieren)</div>
+    <div class="chip-group" id="stickerChips">
+      <div class="chip active" data-sticker-index="none">Kein Sticker</div>
+      <div class="chip" id="addStickerChip">+ Bild hochladen</div>
+      <input type="file" id="stickerInput" accept="image/*" multiple style="display:none;">
+    </div>
+
+    <div class="controls-bottom">
+      <button class="shutter-btn" id="shutterBtn" disabled>START</button>
+      <div class="counter" id="counterLabel">0 / 4 Bilder</div>
+    </div>
+  </div>
+
+  <div class="strip-section">
+    <div class="label">Fotostreifen</div>
+    <div class="strip-wrap">
+      <div class="strip-empty" id="stripEmpty">Noch keine Aufnahmen. Drück auf den Auslöser.</div>
+      <canvas id="stripCanvas" style="display:none;"></canvas>
+      <div class="actions">
+        <button id="resetBtn" disabled>Neu starten</button>
+        <button class="primary" id="downloadBtn" disabled>Herunterladen</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">Läuft komplett lokal im Browser — es wird kein Bild irgendwohin hochgeladen.<br>Falls die Kamera hier in der Vorschau blockiert ist: Datei herunterladen und lokal im Browser öffnen.</p>
+</div>
+
+<canvas class="offscreen" id="shotCanvas"></canvas>
+
+<script>
+(function(){
+  const video = document.getElementById('video');
+  const liveCanvas = document.getElementById('liveCanvas');
+  const statusLine = document.getElementById('statusLine');
+  const shutterBtn = document.getElementById('shutterBtn');
+  const counterLabel = document.getElementById('counterLabel');
+  const countdownNum = document.getElementById('countdownNum');
+  const flashOverlay = document.getElementById('flashOverlay');
+  const filterChips = document.getElementById('filterChips');
+  const stickerChips = document.getElementById('stickerChips');
+  const addStickerChip = document.getElementById('addStickerChip');
+  const stickerInput = document.getElementById('stickerInput');
+  const brightnessSlider = document.getElementById('brightnessSlider');
+  const contrastSlider = document.getElementById('contrastSlider');
+  const saturationSlider = document.getElementById('saturationSlider');
+  const hueSlider = document.getElementById('hueSlider');
+  const brightnessVal = document.getElementById('brightnessVal');
+  const contrastVal = document.getElementById('contrastVal');
+  const saturationVal = document.getElementById('saturationVal');
+  const hueVal = document.getElementById('hueVal');
+  const stripCanvas = document.getElementById('stripCanvas');
+  const stripEmpty = document.getElementById('stripEmpty');
+  const resetBtn = document.getElementById('resetBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const shotCanvas = document.getElementById('shotCanvas');
+  const uploadFallback = document.getElementById('uploadFallback');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const fileInput = document.getElementById('fileInput');
+  const screenEl = document.getElementById('screen');
+
+  let currentFilter = 'none';
+  let currentStickerImg = null;
+  let stickerLibrary = [];
+  let placedStickers = [];
+  let shots = [];
+  let usingFallbackImage = null;
+  let streamActive = false;
+
+  // Kamera starten
+  async function startCamera(){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio:false });
+      video.srcObject = stream;
+      streamActive = true;
+      statusLine.textContent = 'Bereit';
+      shutterBtn.disabled = false;
+      drawLiveLoop();
+    }catch(err){
+      statusLine.textContent = 'Kein Kamerazugriff';
+      uploadFallback.classList.add('show');
+    }
+  }
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const img = new Image();
+    img.onload = () => {
+      usingFallbackImage = img;
+      uploadFallback.classList.remove('show');
+      statusLine.textContent = 'Foto geladen';
+      shutterBtn.disabled = false;
+      drawFallbackImage();
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  function drawFallbackImage(){
+    const ctx = liveCanvas.getContext('2d');
+    liveCanvas.width = screenEl.clientWidth;
+    liveCanvas.height = screenEl.clientHeight;
+    liveCanvas.style.display = 'block';
+    video.style.display = 'none';
+    ctx.filter = currentFilter;
+    drawCover(ctx, usingFallbackImage, liveCanvas.width, liveCanvas.height, false);
+    drawStickerPreview(ctx);
+  }
+
+  function drawCover(ctx, source, w, h, mirror){
+    const sw = source.videoWidth || source.width;
+    const sh = source.videoHeight || source.height;
+    const scale = Math.max(w / sw, h / sh);
+    const dw = sw * scale, dh = sh * scale;
+    const dx = (w - dw) / 2, dy = (h - dh) / 2;
+    ctx.save();
+    if(mirror){
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(source, w - (dx + dw), dy, dw, dh);
+    } else {
+      ctx.drawImage(source, dx, dy, dw, dh);
+    }
+    ctx.restore();
+  }
+
+  function drawLiveLoop(){
+    if(!streamActive) return;
+    const ctx = liveCanvas.getContext('2d');
+    liveCanvas.width = screenEl.clientWidth;
+    liveCanvas.height = screenEl.clientHeight;
+    requestAnimationFrame(function loop(){
+      if(video.readyState >= 2){
+        ctx.clearRect(0,0,liveCanvas.width, liveCanvas.height);
+      }
+      requestAnimationFrame(loop);
+    });
+  }
+
+  // Sticker per Klick auf dem Bildschirm platzieren
+  screenEl.addEventListener('click', (e) => {
+    if(!currentStickerImg) return;
+    if(e.target.closest('.upload-fallback')) return;
+    const rect = screenEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    placedStickers.push({ src: currentStickerImg.src, x, y });
+    renderStickerLayer();
+  });
+
+  function renderStickerLayer(){
+    document.querySelectorAll('.sticker-mark').forEach(el => el.remove());
+    placedStickers.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'sticker-mark';
+      el.style.position = 'absolute';
+      el.style.left = (s.x*100) + '%';
+      el.style.top = (s.y*100) + '%';
+      el.style.width = '56px';
+      el.style.height = '56px';
+      el.style.transform = 'translate(-50%,-50%)';
+      el.style.zIndex = '4';
+      el.style.pointerEvents = 'none';
+      const img = document.createElement('img');
+      img.src = s.src;
+      el.appendChild(img);
+      screenEl.appendChild(el);
+    });
+  }
+
+  function drawStickerPreview(){}
+
+  // Eigene Sticker-Bilder hochladen
+  addStickerChip.addEventListener('click', () => stickerInput.click());
+  stickerInput.addEventListener('change', (e) => {
+    [...e.target.files].forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          stickerLibrary.push(img);
+          addStickerChipToUI(img);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    stickerInput.value = '';
+  });
+
+  function addStickerChipToUI(img){
+    const chip = document.createElement('div');
+    chip.className = 'chip sticker-thumb';
+    chip.appendChild(img.cloneNode());
+    chip.addEventListener('click', () => {
+      [...stickerChips.querySelectorAll('.chip')].forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentStickerImg = img;
+    });
+    stickerChips.insertBefore(chip, addStickerChip);
+  }
+
+  stickerChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip[data-sticker-index="none"]');
+    if(!chip) return;
+    [...stickerChips.querySelectorAll('.chip')].forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentStickerImg = null;
+  });
+
+  function buildFilterString(){
+    return 'brightness(' + brightnessSlider.value + '%) '
+      + 'contrast(' + contrastSlider.value + '%) '
+      + 'saturate(' + saturationSlider.value + '%) '
+      + 'hue-rotate(' + hueSlider.value + 'deg)';
+  }
+
+  function applyFilter(){
+    currentFilter = buildFilterString();
+    video.style.filter = currentFilter;
+    liveCanvas.style.filter = currentFilter;
+    brightnessVal.textContent = brightnessSlider.value + '%';
+    contrastVal.textContent = contrastSlider.value + '%';
+    saturationVal.textContent = saturationSlider.value + '%';
+    hueVal.textContent = hueSlider.value + '°';
+    if(usingFallbackImage) drawFallbackImage();
+  }
+
+  filterChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    [...filterChips.children].forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    brightnessSlider.value = chip.dataset.b;
+    contrastSlider.value = chip.dataset.c;
+    saturationSlider.value = chip.dataset.s;
+    hueSlider.value = chip.dataset.h;
+    applyFilter();
+  });
+
+  [brightnessSlider, contrastSlider, saturationSlider, hueSlider].forEach(slider => {
+    slider.addEventListener('input', () => {
+      [...filterChips.children].forEach(c => c.classList.remove('active'));
+      applyFilter();
+    });
+  });
+
+  applyFilter();
+
+  stickerChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    [...stickerChips.children].forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentSticker = chip.dataset.sticker;
+  });
+
+  // Auslöser: Countdown, dann 4 Aufnahmen
+  shutterBtn.addEventListener('click', async () => {
+    shutterBtn.disabled = true;
+    shots = [];
+    counterLabel.textContent = '0 / 4 Bilder';
+    for(let i=0; i<4; i++){
+      await runCountdown(3);
+      takeShot();
+      counterLabel.textContent = shots.length + ' / 4 Bilder';
+      await wait(400);
+    }
+    buildStrip();
+    shutterBtn.disabled = false;
+  });
+
+  function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  function runCountdown(n){
+    return new Promise(resolve => {
+      countdownNum.style.display = 'flex';
+      let count = n;
+      countdownNum.textContent = count;
+      const iv = setInterval(() => {
+        count--;
+        if(count > 0){
+          countdownNum.textContent = count;
+        } else {
+          clearInterval(iv);
+          countdownNum.style.display = 'none';
+          resolve();
+        }
+      }, 700);
+    });
+  }
+
+  function triggerFlash(){
+    flashOverlay.style.transition = 'none';
+    flashOverlay.style.opacity = '0.85';
+    requestAnimationFrame(() => {
+      flashOverlay.style.transition = 'opacity 0.35s ease';
+      flashOverlay.style.opacity = '0';
+    });
+  }
+
+  function takeShot(){
+    triggerFlash();
+    const w = 480, h = 360;
+    shotCanvas.width = w;
+    shotCanvas.height = h;
+    const ctx = shotCanvas.getContext('2d');
+    ctx.filter = currentFilter;
+
+    if(usingFallbackImage){
+      drawCover(ctx, usingFallbackImage, w, h, false);
+    } else {
+      drawCover(ctx, video, w, h, true);
+    }
+    ctx.filter = 'none';
+
+    // Sticker einbrennen (relative Bildschirmkoordinaten -> Canvas)
+    placedStickers.forEach(s => {
+      ctx.font = '54px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.emoji, s.x * w, s.y * h);
+    });
+
+    const dataUrl = shotCanvas.toDataURL('image/png');
+    shots.push(dataUrl);
+  }
+
+  function buildStrip(){
+    const shotW = 480, shotH = 360, pad = 20, gap = 14;
+    const stripW = shotW + pad*2;
+    const stripH = pad + (shotH+gap)*shots.length + pad + 40;
+
+    stripCanvas.width = stripW;
+    stripCanvas.height = stripH;
+    const ctx = stripCanvas.getContext('2d');
+
+    ctx.fillStyle = '#fbf6ec';
+    ctx.fillRect(0,0,stripW,stripH);
+
+    let loaded = 0;
+    shots.forEach((src, i) => {
+      const img = new Image();
+      img.onload = () => {
+        const y = pad + i*(shotH+gap);
+        ctx.drawImage(img, pad, y, shotW, shotH);
+        ctx.strokeStyle = '#d8cdb8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pad, y, shotW, shotH);
+        loaded++;
+        if(loaded === shots.length){
+          ctx.fillStyle = '#8a7a5c';
+          ctx.font = '20px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('FOTO-KABINE · ' + new Date().toLocaleDateString('de-DE'), stripW/2, stripH - 16);
+        }
+      };
+      img.src = src;
+    });
+
+    stripEmpty.style.display = 'none';
+    stripCanvas.style.display = 'block';
+    downloadBtn.disabled = false;
+    resetBtn.disabled = false;
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'fotostreifen.png';
+    link.href = stripCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    shots = [];
+    placedStickers = [];
+    renderStickerLayer();
+    counterLabel.textContent = '0 / 4 Bilder';
+    stripCanvas.style.display = 'none';
+    stripEmpty.style.display = 'block';
+    downloadBtn.disabled = true;
+    resetBtn.disabled = true;
+  });
+
+  startCamera();
+})();
+</script>
+
+</body>
+</html>
